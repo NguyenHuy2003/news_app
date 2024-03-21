@@ -7,11 +7,71 @@ import 'package:http/http.dart' as http;
 
 import 'article_model.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  // ignore: library_private_types_in_public_api
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  List<Article> articles = [];
+
+  List<Article> searchResults = [];
+  Map<String, List<Article>> categorizedArticles = {};
+
+  String currentCategory = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    fetchArticles();
+  }
+
+  Future<void> fetchArticles() async {
+    const url =
+        'https://newsapi.org/v2/everything?q=tesla&from=2024-02-21&sortBy=publishedAt&apiKey=393e2281d6b44ccda1a66b5f8a7e11b2';
+    final res = await http.get(Uri.parse(url));
+
+    final body = json.decode(res.body) as Map<String, dynamic>;
+
+    final List<Article> result = [];
+    for (final article in body['articles']) {
+      result.add(Article(
+        title: article['title'],
+        urlToImage: article['urlToImage'],
+        author: article['author'],
+        publishedAt: article['publishedAt'],
+        categories: article['categories'],
+      ));
+    }
+
+    setState(() {
+      articles = result;
+    });
+  }
+
+  void performSearch(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        searchResults.clear();
+      });
+    } else {
+      setState(() {
+        searchResults = articles
+            .where((article) =>
+                article.title!.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final List<Article> displayArticles =
+        searchResults.isNotEmpty ? searchResults : articles;
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -19,7 +79,6 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ngày tháng
               Text(
                 DateFormat('EEE, dd\'th\' MMMM yyyy').format(DateTime.now()),
               ),
@@ -30,34 +89,21 @@ class HomeScreen extends StatelessWidget {
                   fontSize: 20,
                 ),
               ),
-              // Title
               const SizedBox(height: 24),
-              // Input tìm kiếm
-              Container(
-                margin: const EdgeInsets.only(right: 16.0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16.0),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    fillColor: Colors.grey.shade300,
-                    filled: true,
-                    border: InputBorder.none,
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: 'Search for article',
-                  ),
-                ),
+              SearchBar(
+                onSearch: (searchQuery) {
+                  performSearch(searchQuery);
+                },
               ),
               const SizedBox(height: 24),
-              // Thanh danh sách thể loại
               const SizedBox(
                 height: 40,
                 child: CategoriesBar(),
               ),
-              // Danh sách bài báo
               const SizedBox(height: 24),
-              const Expanded(child: ArticleList()),
+              Expanded(
+                child: ArticleList(articles: displayArticles),
+              ),
             ],
           ),
         ),
@@ -67,7 +113,7 @@ class HomeScreen extends StatelessWidget {
 }
 
 class CategoriesBar extends StatefulWidget {
-  const CategoriesBar({super.key});
+  const CategoriesBar({Key? key}) : super(key: key);
 
   @override
   State<CategoriesBar> createState() => _CategoriesBarState();
@@ -77,7 +123,7 @@ class _CategoriesBarState extends State<CategoriesBar> {
   List<String> categories = const [
     'All',
     'Politics',
-    'Sports',
+    'Unknown',
     'Health',
     'Music',
     'Tech'
@@ -93,13 +139,13 @@ class _CategoriesBarState extends State<CategoriesBar> {
       itemBuilder: (context, index) {
         return GestureDetector(
           onTap: () {
-            currentCategory = index;
-            setState(() {});
+            setState(() {
+              currentCategory = index;
+            });
           },
           child: Container(
             margin: const EdgeInsets.only(right: 8.0),
             padding: const EdgeInsets.symmetric(
-              // vertical: 8.0,
               horizontal: 20.0,
             ),
             decoration: BoxDecoration(
@@ -123,78 +169,35 @@ class _CategoriesBarState extends State<CategoriesBar> {
 }
 
 class ArticleList extends StatelessWidget {
-  const ArticleList({super.key});
+  final List<Article> articles;
+
+  const ArticleList({Key? key, required this.articles}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: getArticles(),
-      builder: (context, snapshot) {
-        switch (snapshot.connectionState) {
-          case ConnectionState.none:
-          case ConnectionState.active:
-          case ConnectionState.waiting:
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          case ConnectionState.done:
-            final data = snapshot.data ?? [];
-            return ListView.builder(
-              padding: const EdgeInsets.only(right: 16.0),
-              itemCount: data.length,
-              itemBuilder: (context, index) {
-                return ArticleTile(
-                  article: data.elementAt(index),
-                );
-              },
-            );
-        }
+    return ListView.builder(
+      padding: const EdgeInsets.only(right: 16.0),
+      itemCount: articles.length,
+      itemBuilder: (context, index) {
+        return ArticleTile(article: articles[index]);
       },
     );
-  }
-
-  Future<List<Article>> getArticles() async {
-    const url =
-        'https://newsapi.org/v2/everything?q=tesla&from=2024-02-20&sortBy=publishedAt&apiKey=393e2281d6b44ccda1a66b5f8a7e11b2';
-    final res = await http.get(Uri.parse(url));
-
-    final body = json.decode(res.body) as Map<String, dynamic>;
-
-    final List<Article> result = [];
-    for (final article in body['articles']) {
-      result.add(
-        Article(
-            title: article['title'],
-            urlToImage: article['urlToImage'],
-            author: article['author'],
-            publishedAt: article['publishedAt']),
-      );
-    }
-
-    return result;
   }
 }
 
 class ArticleTile extends StatelessWidget {
-  const ArticleTile({super.key, required this.article});
-
   final Article article;
+
+  const ArticleTile({Key? key, required this.article}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Kiểm tra xem article.publishedAt có null hay không trước khi chuyển đổi
     final publishedDateTime = article.publishedAt != null
         ? DateTime.parse(article.publishedAt!)
-        : DateTime.now(); // Nếu null, sử dụng thời gian hiện tại
+        : DateTime.now();
 
-    // Định dạng thời gian đăng bài từ đối tượng DateTime
-    final formattedDateTime =
-        DateFormat.yMMMMd().add_jm().format(publishedDateTime);
-
-    // Tính toán khoảng cách thời gian
     final timeDifference = DateTime.now().difference(publishedDateTime);
 
-    // Chuyển khoảng cách thời gian thành chuỗi phù hợp
     String formattedTimeDifference;
     if (timeDifference.inDays > 0) {
       formattedTimeDifference = '${timeDifference.inDays} days ago';
@@ -230,7 +233,6 @@ class ArticleTile extends StatelessWidget {
               },
             ),
           ),
-          // TODO: Thêm thông tin bài báo
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -242,19 +244,18 @@ class ArticleTile extends StatelessWidget {
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
-                  maxLines: 3, // Giới hạn số dòng của tiêu đề
-                  overflow: TextOverflow.ellipsis, // Tránh tràn dòng
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(
-                    height:
-                        4), // Khoảng cách giữa tiêu đề và văn bản "viết bởi"
+                const SizedBox(height: 4),
                 Text(
                   'By ${article.author ?? 'Unknown'}',
                   style: const TextStyle(
-                    fontSize: 14, // Kích thước văn bản nhỏ hơn tiêu đề
+                    fontSize: 14,
                     color: Colors.grey,
-                    // Màu xám
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -268,9 +269,9 @@ class ArticleTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 20),
                     const SizedBox(width: 4),
-                    const Text(
-                      'Unknown',
-                      style: TextStyle(
+                    Text(
+                      '${article.categories ?? 'Unknown'}',
+                      style: const TextStyle(
                         fontSize: 13,
                         color: Colors.grey,
                       ),
@@ -292,5 +293,49 @@ class ArticleTile extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class SearchBar extends StatefulWidget {
+  final Function(String) onSearch;
+
+  const SearchBar({Key? key, required this.onSearch}) : super(key: key);
+
+  @override
+  // ignore: library_private_types_in_public_api
+  _SearchBarState createState() => _SearchBarState();
+}
+
+class _SearchBarState extends State<SearchBar> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 16.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: TextFormField(
+        controller: _searchController,
+        onChanged: (value) {
+          widget.onSearch(value);
+        },
+        decoration: InputDecoration(
+          fillColor: Colors.grey.shade300,
+          filled: true,
+          border: InputBorder.none,
+          prefixIcon: const Icon(Icons.search),
+          hintText: 'Search for article',
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 }
