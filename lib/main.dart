@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'setting_screen.dart';
-
 import 'home_screen.dart';
 
 void main() {
@@ -8,7 +7,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +19,7 @@ class MyApp extends StatelessWidget {
 }
 
 class Wrapper extends StatefulWidget {
-  const Wrapper({super.key});
+  const Wrapper({Key? key}) : super(key: key);
 
   @override
   State<Wrapper> createState() => _WrapperState();
@@ -28,15 +27,25 @@ class Wrapper extends StatefulWidget {
 
 class _WrapperState extends State<Wrapper> {
   int index = 0;
-  List<Widget> widgets = const [
-    HomeScreen(),
-    SettingScreen(),
-  ];
+  late List<Widget> widgets;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the list of widgets here
+    widgets = [
+      const HomeScreen(),
+      const SettingScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: widgets.elementAt(index),
+      body: IndexedStack(
+        index: index,
+        children: widgets,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,
         onTap: (value) {
