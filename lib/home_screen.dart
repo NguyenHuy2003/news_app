@@ -11,17 +11,14 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Article> articles = [];
-
   List<Article> searchResults = [];
-  Map<String, List<Article>> categorizedArticles = {};
-
   String currentCategory = 'All';
+  List<Article> displayArticles = [];
 
   @override
   void initState() {
@@ -49,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       articles = result;
+      filterByCategory(currentCategory);
     });
   }
 
@@ -56,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (query.isEmpty) {
       setState(() {
         searchResults.clear();
+        filterByCategory(currentCategory);
       });
     } else {
       setState(() {
@@ -63,15 +62,55 @@ class _HomeScreenState extends State<HomeScreen> {
             .where((article) =>
                 article.title!.toLowerCase().contains(query.toLowerCase()))
             .toList();
+        filterByCategory(currentCategory);
       });
+    }
+  }
+
+  void filterByCategory(String category) {
+    setState(() {
+      currentCategory = category;
+      if (category == 'All') {
+        displayArticles = searchResults.isNotEmpty ? searchResults : articles;
+      } else {
+        displayArticles = searchResults.isNotEmpty
+            ? searchResults
+                .where((article) =>
+                    article.categories?.contains(category) ?? false)
+                .toList()
+            : articles
+                .where((article) =>
+                    article.categories?.contains(category) ?? false)
+                .toList();
+      }
+      if (displayArticles.isEmpty && category != 'All') {
+        displayArticles = articles
+            .where((article) =>
+                article.categories == null ||
+                !article.categories!.contains(category))
+            .toList();
+      }
+    });
+  }
+
+  List<Article> getFilteredArticles() {
+    if (currentCategory == 'All') {
+      return searchResults.isNotEmpty ? searchResults : articles;
+    } else {
+      return searchResults.isNotEmpty
+          ? searchResults
+              .where((article) =>
+                  article.categories?.contains(currentCategory) ?? false)
+              .toList()
+          : articles
+              .where((article) =>
+                  article.categories?.contains(currentCategory) ?? false)
+              .toList();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<Article> displayArticles =
-        searchResults.isNotEmpty ? searchResults : articles;
-
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -96,13 +135,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              const SizedBox(
+              SizedBox(
                 height: 40,
-                child: CategoriesBar(),
+                child: CategoriesBar(
+                  onCategorySelected: (category) {
+                    filterByCategory(category);
+                  },
+                ),
               ),
               const SizedBox(height: 24),
               Expanded(
-                child: ArticleList(articles: displayArticles),
+                child: ArticleList(articles: getFilteredArticles()),
               ),
             ],
           ),
@@ -113,7 +156,10 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class CategoriesBar extends StatefulWidget {
-  const CategoriesBar({Key? key}) : super(key: key);
+  final Function(String) onCategorySelected;
+
+  const CategoriesBar({Key? key, required this.onCategorySelected})
+      : super(key: key);
 
   @override
   State<CategoriesBar> createState() => _CategoriesBarState();
@@ -142,6 +188,7 @@ class _CategoriesBarState extends State<CategoriesBar> {
             setState(() {
               currentCategory = index;
             });
+            widget.onCategorySelected(categories[index]);
           },
           child: Container(
             margin: const EdgeInsets.only(right: 8.0),
@@ -302,7 +349,6 @@ class SearchBar extends StatefulWidget {
   const SearchBar({Key? key, required this.onSearch}) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _SearchBarState createState() => _SearchBarState();
 }
 
